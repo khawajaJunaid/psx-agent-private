@@ -1,0 +1,11 @@
+# Optional: browser-based news fallback (Dawn + Business Recorder HTML when
+# plain requests get 403). Heavy — downloads Chromium via Playwright (~300MB).
+#
+#   pip install -r requirements-crawl4ai.txt
+#   crawl4ai-setup
+#
+# Then:
+#   export PSX_USE_CRAWL4AI=1
+#   python3 agent.py
+
+crawl4ai>=0.4.0

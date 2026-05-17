@@ -1,0 +1,82 @@
+# Personal investing profile for psx-agent.
+# Copy this file to `profile.yaml` and fill in the values. Keep `profile.yaml`
+# OUT of git (it's listed in .gitignore once we add it).
+#
+# Currency assumed: PKR. Times: leave blank if unknown.
+
+# -----------------------------------------------------------------------------
+# WHO YOU ARE
+# -----------------------------------------------------------------------------
+identity:
+  name: "Your Name"            # Used only to personalise the report
+  age: 30                      # Helps the agent reason about horizon
+  base_currency: "PKR"
+
+# -----------------------------------------------------------------------------
+# CASH FLOW — informs how aggressive new positions can be
+# -----------------------------------------------------------------------------
+cash_flow:
+  monthly_take_home: 0         # Net income per month (PKR)
+  monthly_fixed_expenses: 0    # Rent, utilities, food, debt repayments
+  monthly_savings: 0           # Of the above, how much you can invest
+  emergency_fund_pkr: 0        # Liquid cash already set aside (NOT counted as investable)
+
+# -----------------------------------------------------------------------------
+# CAPITAL AVAILABLE TO INVEST
+# -----------------------------------------------------------------------------
+capital:
+  investable_cash_pkr: 0       # Cash sitting in your brokerage / ready to deploy
+  monthly_contribution_pkr: 0  # New money you'll add each month
+  brokerage_fee_pct: 0.15      # Approx. % charged per trade (round trip ~ 0.30%)
+  cgt_pct: 15.0                # Capital gains tax assumption (%)
+
+# Optional: Yahoo PSX (.KA) quotes are often delayed vs your broker app.
+# Set last prices here so the agent matches what you see (edit before each run if you like).
+# price_overrides:
+#   MEBL: 492.34
+#   UBL: 381.23
+
+# -----------------------------------------------------------------------------
+# GOALS — drives required return and trade selection
+# -----------------------------------------------------------------------------
+goal:
+  style: "income"              # income | growth | target
+  # If style == "target", set the next two:
+  target_pkr: null             # e.g. 5_000_000
+  target_years: null           # e.g. 5
+  notes: "Prefer steady dividends and lower volatility over big swings."
+
+# -----------------------------------------------------------------------------
+# RISK / CONSTRAINTS — bound the agent's recommendations
+# -----------------------------------------------------------------------------
+risk:
+  tolerance: "medium"          # low | medium | high
+  max_drawdown_pct: 25         # Pain threshold; beyond this you'd panic
+  max_single_position_pct: 20  # No single name above X% of portfolio
+  max_sector_exposure_pct: 40  # No sector above X% of portfolio
+  min_cash_reserve_pct: 10     # Always keep at least X% as cash
+  shariah_preference: "prefer" # require | prefer | none
+  banned_tickers: []           # e.g. ["ABC", "XYZ"] — never trade these
+  banned_sectors: []           # e.g. ["Tobacco"]
+
+# -----------------------------------------------------------------------------
+# CURRENT HOLDINGS — what you already own
+# -----------------------------------------------------------------------------
+# Leave the list empty ([]) if you don't own anything yet.
+holdings:
+  - ticker: "MEBL"
+    shares: 0                  # number of shares held
+    avg_cost_pkr: 0            # average purchase price per share
+    bought_on: "2024-01-15"    # YYYY-MM-DD (approx is fine)
+    # broker_last_price_pkr: 492.34   # optional: overrides Yahoo for this ticker only
+  # - ticker: "OGDC"
+  #   shares: 100
+  #   avg_cost_pkr: 280.0
+  #   bought_on: "2025-06-01"
+
+# -----------------------------------------------------------------------------
+# PREFERENCES (already chosen, but you can tweak any time)
+# -----------------------------------------------------------------------------
+preferences:
+  action_vocabulary: "full"    # simple | action | full
+  report_verbosity: "full"     # short | current | full

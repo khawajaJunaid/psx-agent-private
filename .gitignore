@@ -1,0 +1,15 @@
+.env
+profile.yaml
+db.sqlite
+reports/
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store
+.jdk/
+.cache/pdfs/
+.cache/extracted/
+.cache/report_verdict_inject.md
+.cache/js_global_storage.json
+.cache/js_global_cookie.txt

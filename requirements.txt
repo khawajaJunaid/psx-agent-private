@@ -1,0 +1,11 @@
+anthropic>=0.25.0
+openai>=1.0.0
+yfinance>=0.2.38
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+python-dotenv>=1.0.0
+PyYAML>=6.0
+opendataloader-pdf>=1.8.0
+PyMuPDF>=1.23.0
+
+# Optional Playwright news (Dawn / BR when 403): pip install -r requirements-crawl4ai.txt
