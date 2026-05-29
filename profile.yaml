@@ -1,0 +1,99 @@
+# Personal investing profile for psx-agent.
+# Copy this file to `profile.yaml` and fill in the values. Keep `profile.yaml`
+# OUT of git (it's listed in .gitignore once we add it).
+#
+# Currency assumed: PKR. Times: leave blank if unknown.
+
+# -----------------------------------------------------------------------------
+# WHO YOU ARE
+# -----------------------------------------------------------------------------
+identity:
+  name: "You"
+  age: null
+  base_currency: "PKR"
+
+# -----------------------------------------------------------------------------
+# CASH FLOW — informs how aggressive new positions can be
+# -----------------------------------------------------------------------------
+cash_flow:
+  monthly_take_home: 456000
+  monthly_fixed_expenses: 200000
+  monthly_savings: 256000
+  emergency_fund_pkr: 0          # TODO: confirm — "<1 month of 200k expenses"
+
+# -----------------------------------------------------------------------------
+# CAPITAL AVAILABLE TO INVEST
+# -----------------------------------------------------------------------------
+capital:
+  investable_cash_pkr: 9799      # JS InvestPro ledger (confirmed 2026-05-29)
+  monthly_contribution_pkr: 17500 # midpoint of "10k–25k" range — edit if exact
+  brokerage_fee_pct: 0.15
+  cgt_pct: 15.0
+
+# Optional: Yahoo PSX (.KA) quotes are often delayed vs your broker app.
+# Set last prices here so the agent matches what you see (edit before each run if you like).
+# price_overrides:
+#   MEBL: 492.34
+#   UBL: 381.23
+
+# -----------------------------------------------------------------------------
+# GOALS — drives required return and trade selection
+# -----------------------------------------------------------------------------
+goal:
+  style: "income"
+  target_pkr: null
+  target_years: null
+  notes: "Prefer steady dividends and lower volatility over big swings."
+
+# -----------------------------------------------------------------------------
+# RISK / CONSTRAINTS — bound the agent's recommendations
+# -----------------------------------------------------------------------------
+risk:
+  tolerance: "medium"
+  max_drawdown_pct: 25
+  max_single_position_pct: 20
+  max_sector_exposure_pct: 40
+  min_cash_reserve_pct: 10
+  shariah_preference: "prefer"
+  banned_tickers: []
+  banned_sectors: []
+
+# -----------------------------------------------------------------------------
+# CURRENT HOLDINGS — what you already own
+# -----------------------------------------------------------------------------
+holdings:
+  - ticker: "HUBC"
+    shares: 48
+    avg_cost_pkr: 224.51
+    bought_on: "2026-05-04"
+  - ticker: "MEBL"
+    shares: 23
+    avg_cost_pkr: 523.96
+    bought_on: null
+  - ticker: "TGL"
+    shares: 60
+    avg_cost_pkr: 178.83
+    bought_on: null
+  - ticker: "PSO"
+    shares: 29
+    avg_cost_pkr: 364.69
+    bought_on: "2026-05-06"
+  - ticker: "OGDC"
+    shares: 16
+    avg_cost_pkr: 299.90
+    bought_on: null
+  - ticker: "WTL"
+    shares: 100
+    avg_cost_pkr: 1.24
+    bought_on: null
+  - ticker: "BOP"
+    shares: 1
+    avg_cost_pkr: 24.95
+    bought_on: null
+
+# -----------------------------------------------------------------------------
+# PREFERENCES (already chosen, but you can tweak any time)
+# -----------------------------------------------------------------------------
+preferences:
+  action_vocabulary: "full"
+  report_verbosity: "full"

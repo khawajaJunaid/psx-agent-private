@@ -1,6 +1,7 @@
-# Private repo gitignore — tracks sensitive files that public repo excludes.
-# Use this file as .gitignore when working from psx-agent-private.
 .env
+profile.yaml
+db.sqlite
+!data/decisions.json
 reports/
 __pycache__/
 *.pyc
