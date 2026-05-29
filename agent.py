@@ -1246,6 +1246,11 @@ def main():
 
     print("  All decisions saved to db.sqlite")
     try:
+        from logger import export_decisions_json
+        export_decisions_json()
+    except Exception as e:
+        print(f"  [!] export to data/decisions.json failed: {e}")
+    try:
         from report import persist_verdict_inject, write_reports
 
         vmd = verdict.get("markdown") or ""

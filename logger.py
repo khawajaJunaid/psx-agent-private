@@ -115,6 +115,34 @@ def log_execution(
     print(f"  [log] Saved execution {exec_id[:8]}... {ticker.upper()} {action.upper()} x{quantity}")
     return exec_id
 
+DATA_DIR = Path(__file__).parent / "data"
+DECISIONS_JSON = DATA_DIR / "decisions.json"
+
+
+def export_decisions_json():
+    """Export all decisions + outcomes to data/decisions.json for git persistence.
+
+    Safe to call after every run — appends/overwrites the full history so the
+    file is always a complete snapshot. Omits raw signals blob to keep the file
+    readable; reasoning is included.
+    """
+    DATA_DIR.mkdir(exist_ok=True)
+    with get_conn() as conn:
+        rows = conn.execute("""
+            SELECT
+                d.id, d.ticker, d.timestamp, d.decision, d.confidence,
+                d.price_at_decision, d.reasoning,
+                o.price_after_nd, o.n_days, o.pnl_pct, o.recorded_at
+            FROM decisions d
+            LEFT JOIN outcomes o ON d.id = o.decision_id
+            ORDER BY d.timestamp DESC
+        """).fetchall()
+    records = [dict(r) for r in rows]
+    DECISIONS_JSON.write_text(json.dumps(records, indent=2), encoding="utf-8")
+    print(f"  [export] {len(records)} decisions → {DECISIONS_JSON}")
+    return str(DECISIONS_JSON)
+
+
 def get_open_decisions():
     with get_conn() as conn:
         rows = conn.execute("""
