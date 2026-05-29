@@ -1,6 +1,6 @@
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 
 from tools.price import get_price_data
@@ -592,8 +592,53 @@ lean:
 - no_primary_this_run = use when this run has no primary pick"""
 
 
+def psx_market_status() -> str:
+    """Return a one-line PSX market status string (open / closed + next open).
+
+    PSX regular session: Monday–Friday 09:30–15:30 PKT (UTC+5).
+    Does not account for PSX public holidays.
+    """
+    PKT = timezone(timedelta(hours=5))
+    now = datetime.now(PKT)
+    weekday = now.weekday()  # 0=Mon … 6=Sun
+    open_t = now.replace(hour=9, minute=30, second=0, microsecond=0)
+    close_t = now.replace(hour=15, minute=30, second=0, microsecond=0)
+
+    if weekday < 5 and open_t <= now <= close_t:
+        closes_in = close_t - now
+        mins = int(closes_in.total_seconds() // 60)
+        return f"OPEN — closes in {mins // 60}h {mins % 60}m (15:30 PKT)"
+
+    # Work out when the next session opens
+    if weekday < 5 and now < open_t:
+        next_open = open_t
+    else:
+        days_ahead = (7 - weekday) % 7 or 7   # next Monday if weekend; next day otherwise
+        if weekday < 4:                         # Mon–Thu after close → tomorrow
+            days_ahead = 1
+        next_open = (now + timedelta(days=days_ahead)).replace(
+            hour=9, minute=30, second=0, microsecond=0
+        )
+
+    delta = next_open - now
+    total_mins = int(delta.total_seconds() // 60)
+    hours, mins = divmod(total_mins, 60)
+    next_str = next_open.strftime("%a %d %b %H:%M PKT")
+    if hours >= 24:
+        days, hrs = divmod(hours, 24)
+        return f"CLOSED — next session opens in {days}d {hrs}h ({next_str})"
+    return f"CLOSED — next session opens in {hours}h {mins}m ({next_str})"
+
+
 def verdict_disclaimer():
+    market = psx_market_status()
+    order_note = (
+        "Orders placed now will queue and execute at next open."
+        if "CLOSED" in market
+        else "Market is open — orders execute immediately."
+    )
     return (
+        f"Market status: **{market}** — {order_note} "
         "Not financial advice; verify prices, fees, and your broker. "
         "Uses data fetched in this run (prices, news, filings), not a fixed AI knowledge cutoff."
     )
@@ -1200,6 +1245,11 @@ def main():
     print_report(results, portfolio)
 
     print("  All decisions saved to db.sqlite")
+    try:
+        from logger import export_decisions_json
+        export_decisions_json()
+    except Exception as e:
+        print(f"  [!] export to data/decisions.json failed: {e}")
     try:
         from report import persist_verdict_inject, write_reports
 
