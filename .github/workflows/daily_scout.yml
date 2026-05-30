@@ -38,11 +38,6 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Write profile.yaml from secret
-        env:
-          PROFILE_YAML: ${{ secrets.PROFILE_YAML }}
-        run: echo "$PROFILE_YAML" > profile.yaml
-
       - name: Sleep for delay (market settling time)
         run: |
           DELAY=${SCOUT_DELAY_MINUTES:-15}
