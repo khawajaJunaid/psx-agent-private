@@ -1,0 +1,71 @@
+name: Daily PSX Scout
+
+on:
+  schedule:
+    # 04:30 UTC = 09:30 PKT (Mon–Fri). Script sleeps SCOUT_DELAY_MINUTES before running.
+    - cron: "30 4 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Pass --force to scout.py (skip cooldown check)"
+        required: false
+        default: "false"
+
+env:
+  SCOUT_DELAY_MINUTES: 15
+
+jobs:
+  scout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Set up Java (for PDF extraction)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write profile.yaml from secret
+        env:
+          PROFILE_YAML: ${{ secrets.PROFILE_YAML }}
+        run: echo "$PROFILE_YAML" > profile.yaml
+
+      - name: Sleep for delay (market settling time)
+        run: |
+          DELAY=${SCOUT_DELAY_MINUTES:-15}
+          echo "Sleeping ${DELAY} minutes..."
+          sleep $((DELAY * 60))
+
+      - name: Run scout
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          ARGS="--auto"
+          if [[ "${{ github.event.inputs.force }}" == "true" ]]; then
+            ARGS="$ARGS --force"
+          fi
+          python3 scout.py $ARGS
+
+      - name: Upload scout log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scout-log-${{ github.run_id }}
+          path: |
+            logs/
+            db.sqlite
+          retention-days: 30
