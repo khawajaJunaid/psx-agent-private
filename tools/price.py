@@ -19,7 +19,7 @@ def get_price_data(ticker):
     dps = fetch_dps_equity_quote(ticker)
     try:
         data = yf.download(
-            yf_ticker, period="3mo", interval="1d", progress=False, auto_adjust=True
+            yf_ticker, period="1y", interval="1d", progress=False, auto_adjust=True
         )
         if data.empty:
             if dps and dps.get("current_price"):
@@ -58,6 +58,14 @@ def get_price_data(ticker):
             volume_signal = "normal"
         else:
             volume_signal = "low"
+        high_52w = _scalar(close.tail(252).max()) if len(close) >= 20 else None
+        low_52w = _scalar(close.tail(252).min()) if len(close) >= 20 else None
+        if high_52w and low_52w and (high_52w - low_52w) > 0:
+            range_position_pct = round(
+                ((current_price - low_52w) / (high_52w - low_52w)) * 100, 1
+            )
+        else:
+            range_position_pct = None
         out = {
             "ticker": ticker,
             "current_price": round(current_price, 2),
@@ -67,6 +75,9 @@ def get_price_data(ticker):
             "volume_signal": volume_signal,
             "price_source": price_source,
             "yahoo_bar_close": round(bar_close, 2),
+            "high_52w": round(high_52w, 2) if high_52w else None,
+            "low_52w": round(low_52w, 2) if low_52w else None,
+            "range_position_pct": range_position_pct,
         }
         if dps:
             for k, v in dps.items():

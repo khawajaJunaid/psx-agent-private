@@ -115,6 +115,7 @@ def compute_buy_allocation(
     current_price,
     held,
     sector_mv_pkr=0.0,
+    volume_signal=None,
 ):
     """Rupee + share count for one ENTER/ADD from live cash and risk caps.
 
@@ -193,6 +194,10 @@ def compute_buy_allocation(
             "sector_room_pkr": round(sector_room, 2),
             "capped_by": reasons or ["no capacity"],
         }
+
+    if volume_signal == "low":
+        max_spend = max_spend * 0.5
+        capped_by = list(capped_by) + ["low-volume cap (50%)"]
 
     shares = int(max_spend // price)
     size_pkr = round(shares * price, 2)

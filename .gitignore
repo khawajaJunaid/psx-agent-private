@@ -1,6 +1,8 @@
 # Private repo gitignore — tracks sensitive files that public repo excludes.
 # Use this file as .gitignore when working from psx-agent-private.
 .env
+.claude/settings.json
+.claude/settings.local.json
 reports/
 __pycache__/
 *.pyc

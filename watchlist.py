@@ -29,10 +29,13 @@ WATCHLIST = {
     "PSO": "Pakistan State Oil",
     # --- power (tariff, capacity, fuel mix) ---
     "HUBC": "Hub Power Company",
+    # --- pharma (healthcare, branded generics) ---
+    "SEARL": "The Searle Company",
+    "ABOT": "Abbott Laboratories Pakistan",
+    # --- banking addition: strong dividend payer ---
+    "MCB": "MCB Bank Limited",
     # --- growth / quality tilt ---
     "SYS": "Systems Limited",
-    "INDU": "Indus Motor Company",
-    "NESTLE": "Nestle Pakistan",
 }
 
 # One sector label per ticker — used in prompts for macro / theme linking.
@@ -54,8 +57,9 @@ TICKER_SECTOR = {
     "PSO": "Oil marketing",
     "HUBC": "Independent power",
     "SYS": "IT / services",
-    "INDU": "Autos",
-    "NESTLE": "FMCG",
+    "SEARL": "Pharma",
+    "ABOT": "Pharma",
+    "MCB": "Banking",
 }
 
 
