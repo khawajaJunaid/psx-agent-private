@@ -36,6 +36,15 @@ def init_db():
             )
         """)
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS agent_changes (
+                id TEXT PRIMARY KEY,
+                version TEXT NOT NULL,
+                changed_at TEXT NOT NULL,
+                summary TEXT NOT NULL,
+                detail TEXT
+            )
+        """)
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS executions (
                 id TEXT PRIMARY KEY,
                 ticker TEXT NOT NULL,
@@ -114,6 +123,19 @@ def log_execution(
         conn.commit()
     print(f"  [log] Saved execution {exec_id[:8]}... {ticker.upper()} {action.upper()} x{quantity}")
     return exec_id
+
+def log_agent_change(version, summary, detail=None):
+    """Record a parameter / prompt change so impact can be tracked over time."""
+    change_id = str(uuid.uuid4())
+    with get_conn() as conn:
+        conn.execute(
+            """INSERT INTO agent_changes (id, version, changed_at, summary, detail)
+               VALUES (?, ?, ?, ?, ?)""",
+            (change_id, version, datetime.utcnow().isoformat(), summary, detail),
+        )
+        conn.commit()
+    return change_id
+
 
 DATA_DIR = Path(__file__).parent / "data"
 DECISIONS_JSON = DATA_DIR / "decisions.json"

@@ -42,13 +42,18 @@ Decision rules:
 - For tickers user already HOLDS: weigh current P&L; do not panic-sell small unrealised losses, but TRIM/EXIT if signal weakens AND position is over-concentrated.
 - For tickers user does NOT hold: ENTER only if signal is strong AND it fits portfolio (sector/cash caps).
   You may only recommend ENTER for tickers that appear in the user's watchlist (the prompt lists them by sector).
+  For income-goal portfolios: require estimated forward dividend yield ≥ 3% for new ENTER positions unless there is a
+  strong capital-gain catalyst clearly evidenced in the filings (e.g. EPS beat, project commissioning).
 - Macro / sector themes: The watchlist spans banking, cement, fertilizer, E&P, OMC, power, IT, autos, FMCG, etc.
   When **news** (not guesswork) points to a clear sector tailwind or headwind — e.g. large-scale reconstruction or
   infra spend lifting **cement** demand; **fertilizer** or gas-policy headlines; **oil** moves affecting E&P/OMC;
   monetary or regulatory shifts affecting **banks** — you may lean ENTER or ADD for names in that sector **only if**
   price, RSI/trend, and **official PSX filings** still support the case and sizing respects caps and cash.
   State the theme explicitly in reasoning when it drives the call; never ENTER on theme alone with weak or conflicting data.
-- RSI < 35 oversold, > 70 overbought; combine with sentiment and trend.
+- RSI < 35 oversold, > 70 overbought. RSI "neutral" (35–70) is NOT a veto — it simply means no momentum extreme.
+  For income-goal investors: RSI neutral + dividend yield ≥ 3% + positive/neutral PSX filings = valid ENTER.
+- News sentiment from headlines carries ~20% weight only. PSX filings are causal; sentiment is noise unless
+  there is a clear macro catalyst in the headlines.
 - Treat OFFICIAL PSX ANNOUNCEMENTS as the strongest signal (causal events from the company itself):
     * READ the "--- filing text ---" blocks when present. These are the actual contents
       of the company's official letter to PSX. Extract concrete facts:
@@ -179,13 +184,19 @@ def _format_headlines(news, max_lines=8):
     return "\n".join(out)
 
 
-def build_user_prompt(ticker, company_name, price, sentiment, announcements, profile, portfolio, news=None):
+def build_user_prompt(ticker, company_name, price, sentiment, announcements, profile, portfolio, news=None, sector_weights=None, recent_execs=None):
     held = position_for(portfolio, ticker)
     if held:
+        cost_recovery = None
+        if held.get("pnl_pct") and float(held["pnl_pct"]) < 0:
+            loss_pct = abs(float(held["pnl_pct"]))
+            recovery_needed = round(loss_pct / (1 - loss_pct / 100), 1) if loss_pct < 100 else None
+            cost_recovery = f"needs +{recovery_needed}% to recover cost basis" if recovery_needed else None
         position_block = (
             f"USER HOLDS this ticker: {int(held['shares'])} shares @ avg Rs {held['avg_cost_pkr']} "
             f"(cost Rs {held['cost_basis_pkr']:.0f}) | current value Rs {held['market_value_pkr']:.0f} "
             f"({held['weight_pct']:.1f}% of equity) | P&L Rs {held['pnl_pkr']:.0f} ({held['pnl_pct']:+.2f}%)"
+            + (f" | {cost_recovery}" if cost_recovery else "")
         )
     else:
         position_block = "USER does NOT currently hold this ticker."
@@ -205,6 +216,36 @@ def build_user_prompt(ticker, company_name, price, sentiment, announcements, pro
     ticker_sector = TICKER_SECTOR.get(ticker, "See company profile / PSX sector")
     sector_map = watchlist_sector_map_lines()
 
+    # Build optional extra blocks
+    div_yield = _compute_dividend_yield(price)
+    exdiv_date = _parse_exdiv_date(price)
+    div_line = f"- Est. forward dividend yield: {div_yield}%" if div_yield else "- Dividend yield: not available from price data"
+    exdiv_line = f"- Ex-dividend / book closure date: {exdiv_date}" if exdiv_date else ""
+
+    high52 = price.get("high_52w")
+    low52 = price.get("low_52w")
+    range_pos = price.get("range_position_pct")
+    range_line = (
+        f"- 52w range: Rs {low52} – Rs {high52}  |  position: {range_pos}% from low"
+        if high52 and low52 and range_pos is not None
+        else ""
+    )
+
+    sector_block = ""
+    if sector_weights:
+        ticker_sec = TICKER_SECTOR.get(ticker, "Other")
+        sec_wt = sector_weights.get(ticker_sec, 0.0)
+        sector_block = (
+            f"\n== SECTOR WEIGHTS (current portfolio) ==\n"
+            + "\n".join(f"  - {s}: {w}%" for s, w in sorted(sector_weights.items()))
+            + f"\n  (This ticker's sector '{ticker_sec}' = {sec_wt}% of equity)"
+        )
+
+    exec_block = ""
+    if recent_execs:
+        lines_e = [f"  - {e['executed_at'][:10]}  {e['action']}  x{e['quantity']}  @ Rs {e.get('price_pkr','?')}" for e in recent_execs]
+        exec_block = "\n== RECENT BROKER EXECUTIONS FOR THIS TICKER ==\n" + "\n".join(lines_e)
+
     return f"""Stock: {ticker} ({company_name})
 
 == USER PROFILE ==
@@ -221,12 +262,19 @@ def build_user_prompt(ticker, company_name, price, sentiment, announcements, pro
 
 == WATCHLIST BY SECTOR (finite universe — ENTER only for tickers listed here) ==
 {sector_map}
+{sector_block}
 
 == PRICE SIGNALS ==
 - Current price: Rs {price.get('current_price', 'N/A')}
 - 30-day trend: {price.get('trend_30d_pct', 'N/A')}%
 - RSI (14): {price.get('rsi_14', 'N/A')} -> {price.get('rsi_signal', 'N/A')}
 - Volume: {price.get('volume_signal', 'N/A')}
+{range_line}
+
+== INCOME / DIVIDEND SIGNALS ==
+{div_line}
+{exdiv_line}
+{exec_block}
 
 == RECENT HEADLINES (multi-source) ==
 {_format_headlines(news)}
@@ -235,6 +283,7 @@ def build_user_prompt(ticker, company_name, price, sentiment, announcements, pro
 - Overall: {sentiment.get('sentiment', 'neutral')} (score: {sentiment.get('score', 0)})
 - Summary: {sentiment.get('summary', 'No summary')}
 - Key themes: {', '.join(sentiment.get('key_themes', []))}
+- Note: sentiment from headlines is a weak signal — weight at ~20%. Official PSX filings are the primary evidence.
 
 == OFFICIAL PSX ANNOUNCEMENTS (last 30d) ==
 {_format_announcements(announcements)}
@@ -317,13 +366,14 @@ def gather_ticker_data(ticker, company_name):
     }
 
 
-def analyse_stock(ticker, data, profile, portfolio, system_prompt):
+def analyse_stock(ticker, data, profile, portfolio, system_prompt, sector_wts=None):
     company_name = data["company"]
     price = data["price"]
     sentiment = data["sentiment"]
     announcements = data.get("announcements") or {}
 
     print(f"\n  [decide] {ticker}...")
+    recent_execs = _recent_executions(ticker)
     user_prompt = build_user_prompt(
         ticker,
         company_name,
@@ -333,6 +383,8 @@ def analyse_stock(ticker, data, profile, portfolio, system_prompt):
         profile,
         portfolio,
         news=data.get("news"),
+        sector_weights=sector_wts,
+        recent_execs=recent_execs if recent_execs else None,
     )
     raw = complete(system_prompt, user_prompt, max_tokens=700)
     decision = _parse_decision(raw)
@@ -385,6 +437,50 @@ def _last_decision_meta(ticker):
         }
     except Exception:
         return None
+
+
+def _recent_executions(ticker, n=3):
+    """Return last n broker executions for ticker from db."""
+    try:
+        with get_conn() as conn:
+            rows = conn.execute(
+                """SELECT action, quantity, price_pkr, executed_at
+                   FROM executions WHERE ticker = ?
+                   ORDER BY executed_at DESC LIMIT ?""",
+                (ticker.upper(), n),
+            ).fetchall()
+        return [dict(r) for r in rows]
+    except Exception:
+        return []
+
+
+def _compute_dividend_yield(price_data):
+    """Estimate forward dividend yield from DPS quote fields if available."""
+    dividend = price_data.get("dividend_pkr") or price_data.get("dividend")
+    price = price_data.get("current_price")
+    if dividend and price and float(price) > 0:
+        try:
+            return round((float(dividend) / float(price)) * 100, 2)
+        except Exception:
+            pass
+    return None
+
+
+def _parse_exdiv_date(price_data):
+    """Return ex-div date string from DPS data if present."""
+    return price_data.get("ex_dividend_date") or price_data.get("book_closure_date")
+
+
+def _sector_weights(portfolio, ticker_to_sector):
+    """Return {sector: weight_pct} for current portfolio."""
+    if not portfolio:
+        return {}
+    total = float(portfolio.get("total_equity_pkr") or 1)
+    by_sector = {}
+    for p in portfolio.get("positions") or []:
+        sec = ticker_to_sector.get(p["ticker"], "Other")
+        by_sector[sec] = by_sector.get(sec, 0.0) + float(p.get("market_value_pkr") or 0)
+    return {sec: round((mv / total) * 100, 1) for sec, mv in by_sector.items()}
 
 
 def _days_since(dt):
@@ -453,7 +549,7 @@ def apply_trade_policy(results, ticker_data, portfolio, profile):
     min_conf_buy = float(pref.get("min_confidence_buy") or 0.75)
     min_conf_sell = float(pref.get("min_confidence_sell") or 0.70)
     min_edge_over_cost = float(pref.get("min_edge_over_cost_pct") or 1.0)
-    core_cooldown_days = int(pref.get("core_cooldown_days") or 30)
+    core_cooldown_days = int(pref.get("core_cooldown_days") or 14)
     tactical_cooldown_days = int(pref.get("tactical_cooldown_days") or 7)
     rebalance_band = float(pref.get("rebalance_band_pct") or 2.0)
 
@@ -665,7 +761,7 @@ def _sector_market_value(portfolio, sector, ticker_to_sector):
     return t
 
 
-def finalize_buy_sizes(results, verdict, portfolio, profile, ticker_to_sector):
+def finalize_buy_sizes(results, verdict, portfolio, profile, ticker_to_sector, ticker_data=None):
     """Apply code-driven BUY sizing; only the portfolio primary uses deployable cash."""
     if not portfolio or not profile:
         for r in results:
@@ -688,8 +784,10 @@ def finalize_buy_sizes(results, verdict, portfolio, profile, ticker_to_sector):
         held = position_for(portfolio, ticker)
         sector = ticker_to_sector.get(ticker)
         sector_mv = _sector_market_value(portfolio, sector, ticker_to_sector)
+        vol_sig = ((ticker_data or {}).get(ticker) or {}).get("price", {}).get("volume_signal")
         alloc = compute_buy_allocation(
-            portfolio, profile, act, price, held, sector_mv_pkr=sector_mv
+            portfolio, profile, act, price, held, sector_mv_pkr=sector_mv,
+            volume_signal=vol_sig,
         )
 
         if not primary_ticker:
@@ -1206,17 +1304,19 @@ def main():
 
     system_prompt = build_system_prompt(profile)
 
+    sector_wts = _sector_weights(portfolio, TICKER_SECTOR)
+
     results = []
     for ticker, data in ticker_data.items():
         try:
-            results.append(analyse_stock(ticker, data, profile, portfolio, system_prompt))
+            results.append(analyse_stock(ticker, data, profile, portfolio, system_prompt, sector_wts=sector_wts))
         except Exception as e:
             print(f"  [!] decision failed on {ticker}: {e}")
             results.append({"ticker": ticker, "action": "ERROR", "reasoning": str(e)})
 
     apply_trade_policy(results, ticker_data, portfolio, profile)
     verdict = synthesize_portfolio_verdict(results, portfolio, profile, tickers)
-    finalize_buy_sizes(results, verdict, portfolio, profile, TICKER_SECTOR)
+    finalize_buy_sizes(results, verdict, portfolio, profile, TICKER_SECTOR, ticker_data=ticker_data)
     continuity = synthesize_primary_continuity(
         prev_primary, verdict, results, ticker_data, tickers
     )
