@@ -66,7 +66,8 @@ DEFAULT_SHOCK_KEYWORDS = [
 
 SCOUT_SYSTEM_PROMPT = """
 You are a CONSERVATIVE market-monitoring scout for a personal stock-analysis
-agent. The user wants to ACT about once a month. Most days the answer is SKIP.
+agent. The user actively manages their portfolio and typically runs a full
+analysis 2-3 times per week. Most days without material news the answer is SKIP.
 
 You receive a JSON snapshot containing:
   - KSE100 last value, daily change, daily percentage move (live, today)
@@ -80,7 +81,7 @@ Stale, undated, or older headlines must be IGNORED.
 
 Decide ONE verdict:
   SKIP   : nothing material since last run; daily noise only.
-  RUN    : regular cadence justifies a run (>= 7 days since last) OR mild macro shifts OR light per-holding news.
+  RUN    : regular cadence justifies a run (>= 3 days since last) OR mild macro shifts OR light per-holding news.
   URGENT : there is HARD CONFIRMED evidence — typically requires BOTH:
            (a) at least 2 recent (age_hours <= 48) shock-type headlines, AND
            (b) KSE100 |daily_pct| >= 2%, OR per-holding material news.
@@ -697,10 +698,10 @@ def main():
 
     profile = load_profile()
     per_ticker_cap = int(os.getenv("SCOUT_HEADLINES_PER_TICKER", "4"))
-    force_after_hours = float(os.getenv("SCOUT_FORCE_RUN_AFTER_HOURS", "168"))
+    force_after_hours = float(os.getenv("SCOUT_FORCE_RUN_AFTER_HOURS", "72"))
     max_age_hours = float(os.getenv("SCOUT_LOOKBACK_HOURS", "72"))
     shock_window = float(os.getenv("SCOUT_SHOCK_WINDOW_HOURS", "48"))
-    min_hours_between_run = float(os.getenv("SCOUT_MIN_HOURS_BETWEEN_RUN", "12"))
+    min_hours_between_run = float(os.getenv("SCOUT_MIN_HOURS_BETWEEN_RUN", "24"))
 
     if not args.json:
         print("  [scout] fetching KSE100 (PSX DPS)...")
