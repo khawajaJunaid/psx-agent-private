@@ -69,6 +69,9 @@ class JSGlobalClient:
         for pos in enabled:
             if pos <= len(self.password):
                 payload[f"Digit{pos}"] = self.password[pos - 1]
+        import sys
+        print(f"[broker] enabled digits: {enabled}", file=sys.stderr)
+        print(f"[broker] payload (no username): { {k:v for k,v in payload.items() if k != 'UserName'} }", file=sys.stderr)
 
         resp = self._session.post(
             BASE_URL + "/Home/_Login",
