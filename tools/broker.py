@@ -60,12 +60,19 @@ class JSGlobalClient:
                 enabled.append(num)
         if not enabled:
             raise BrokerError("No Digit fields found on login page — portal may have changed")
+        # Extract CSRF token if present
+        csrf = soup.find("input", {"name": "__RequestVerificationToken"})
+        self._csrf_token = csrf["value"] if csrf else None
+        import sys
+        print(f"[broker] CSRF token found: {self._csrf_token is not None}", file=sys.stderr)
         return enabled
 
     def login(self) -> None:
         """Log in to the portal, populating the session cookie."""
         enabled = self._get_enabled_digits()
         payload = {"UserName": self.username}
+        if self._csrf_token:
+            payload["__RequestVerificationToken"] = self._csrf_token
         for pos in enabled:
             if pos <= len(self.password):
                 payload[f"Digit{pos}"] = self.password[pos - 1]
