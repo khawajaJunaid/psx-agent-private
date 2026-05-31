@@ -85,6 +85,17 @@ class JSGlobalClient:
             data=payload,
             allow_redirects=False,
             timeout=15,
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Origin": BASE_URL,
+                "Referer": BASE_URL + "/",
+                "Upgrade-Insecure-Requests": "1",
+                "Sec-Fetch-Site": "same-origin",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-User": "?1",
+                "Sec-Fetch-Dest": "document",
+                "Cache-Control": "max-age=0",
+            },
         )
         import sys
         print(f"[broker] login POST status: {resp.status_code}", file=sys.stderr)
