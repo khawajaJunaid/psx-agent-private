@@ -55,7 +55,7 @@ class JSGlobalClient:
         soup = BeautifulSoup(resp.text, "html.parser")
         enabled = []
         for inp in soup.find_all("input", id=re.compile(r"^Digit\d+$")):
-            if not inp.get("disabled"):
+            if inp.get("disabled") is None:
                 num = int(re.search(r"\d+", inp["id"]).group())
                 enabled.append(num)
         if not enabled:
