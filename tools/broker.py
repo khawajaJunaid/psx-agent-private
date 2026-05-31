@@ -43,6 +43,8 @@ class JSGlobalClient:
         self._session.cookies.set("customValues", '{"font":"Rubik","fontsize":"14"}',
                                   domain="wt.jsglobalonline.com")
         self._logged_in = False
+        # Optional: pre-seeded session cookies (bypasses login when account is locked)
+        self._saved_cookies = (profile.get("broker") or {}).get("session_cookies") or {}
 
     # ------------------------------------------------------------------
     # Login
@@ -69,6 +71,11 @@ class JSGlobalClient:
 
     def login(self) -> None:
         """Log in to the portal, populating the session cookie."""
+        if self._saved_cookies:
+            for name, value in self._saved_cookies.items():
+                self._session.cookies.set(name, value, domain="wt.jsglobalonline.com")
+            self._logged_in = True
+            return
         enabled = self._get_enabled_digits()
         payload = {"UserName": self.username}
         if self._csrf_token:

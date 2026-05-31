@@ -107,3 +107,7 @@ broker:
   password: "Junaidjs008"
   pin: "6601"
   account: "33186"
+  session_cookies:
+    trader: "33186"
+    HouseName: "JS"
+    maxorderno: "0"
