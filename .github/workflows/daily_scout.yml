@@ -41,6 +41,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Sleep for delay (market settling time)
+        if: github.event_name == 'schedule'
         run: |
           DELAY=${SCOUT_DELAY_MINUTES:-15}
           echo "Sleeping ${DELAY} minutes..."
