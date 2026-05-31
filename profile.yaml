@@ -111,3 +111,6 @@ broker:
     trader: "33186"
     HouseName: "JS"
     maxorderno: "0"
+    page2symbols: ""
+    page3symbols: ""
+    page4symbols: ""
