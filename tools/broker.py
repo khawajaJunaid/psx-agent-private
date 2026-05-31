@@ -67,12 +67,8 @@ class JSGlobalClient:
         enabled = self._get_enabled_digits()
         payload = {"UserName": self.username}
         for pos in enabled:
-            if pos > len(self.password):
-                raise BrokerError(
-                    f"Login asked for Digit{pos} but password is only "
-                    f"{len(self.password)} chars long"
-                )
-            payload[f"Digit{pos}"] = self.password[pos - 1]
+            if pos <= len(self.password):
+                payload[f"Digit{pos}"] = self.password[pos - 1]
 
         resp = self._session.post(
             BASE_URL + "/Home/_Login",
