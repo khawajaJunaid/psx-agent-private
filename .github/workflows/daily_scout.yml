@@ -2,8 +2,8 @@ name: Daily PSX Scout
 
 on:
   schedule:
-    # 04:30 UTC = 09:30 PKT (Mon–Fri). Script sleeps SCOUT_DELAY_MINUTES before running.
-    - cron: "30 4 * * 1-5"
+    # 04:45 UTC = 09:45 PKT (Mon–Fri)
+    - cron: "45 4 * * 1-5"
   workflow_dispatch:
     inputs:
       force:
@@ -11,8 +11,6 @@ on:
         required: false
         default: "false"
 
-env:
-  SCOUT_DELAY_MINUTES: 15
 
 jobs:
   scout:
@@ -39,13 +37,6 @@ jobs:
 
       - name: Install dependencies
         run: pip install -r requirements.txt
-
-      - name: Sleep for delay (market settling time)
-        if: github.event_name == 'schedule'
-        run: |
-          DELAY=${SCOUT_DELAY_MINUTES:-15}
-          echo "Sleeping ${DELAY} minutes..."
-          sleep $((DELAY * 60))
 
       - name: Run scout
         id: scout
