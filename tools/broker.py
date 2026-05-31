@@ -34,7 +34,14 @@ class JSGlobalClient:
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                           "AppleWebKit/537.36 (KHTML, like Gecko) "
                           "Chrome/148.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-GB,en-US;q=0.9,en;q=0.8",
+            "Accept-Encoding": "gzip, deflate, br",
+            "DNT": "1",
         })
+        # Seed cookies the server expects from a prior browser visit
+        self._session.cookies.set("customValues", '{"font":"Rubik","fontsize":"14"}',
+                                  domain="wt.jsglobalonline.com")
         self._logged_in = False
 
     # ------------------------------------------------------------------
