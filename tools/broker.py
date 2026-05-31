@@ -89,6 +89,7 @@ class JSGlobalClient:
         import sys
         print(f"[broker] login POST status: {resp.status_code}", file=sys.stderr)
         print(f"[broker] location header: {resp.headers.get('Location','')}", file=sys.stderr)
+        print(f"[broker] response snippet: {resp.text[:500]}", file=sys.stderr)
         # Successful login returns a 302 redirect to /Home/Index
         if resp.status_code == 302 and "/Home/Index" in resp.headers.get("Location", ""):
             self._logged_in = True
