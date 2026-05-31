@@ -47,6 +47,7 @@ jobs:
           sleep $((DELAY * 60))
 
       - name: Run scout
+        id: scout
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -55,7 +56,31 @@ jobs:
           if [[ "${{ github.event.inputs.force }}" == "true" ]]; then
             ARGS="$ARGS --force"
           fi
-          python3 scout.py $ARGS
+          python3 scout.py $ARGS 2>&1 | tee /tmp/scout_output.txt
+          # Extract verdict line for email subject
+          VERDICT=$(grep -oP '(?<=Verdict: )(SKIP|RUN|URGENT)' /tmp/scout_output.txt || echo "UNKNOWN")
+          echo "verdict=$VERDICT" >> $GITHUB_OUTPUT
+          # Capture full output for email body
+          echo "output<<EOF" >> $GITHUB_OUTPUT
+          cat /tmp/scout_output.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Send email notification
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: khawaja.junaid07@gmail.com
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          subject: "PSX Scout [${{ steps.scout.outputs.verdict }}] — ${{ github.run_id }}"
+          to: khawaja.junaid07@gmail.com
+          from: PSX Scout <khawaja.junaid07@gmail.com>
+          body: |
+            ${{ steps.scout.outputs.output }}
+
+            ---
+            Run: https://github.com/khawajaJunaid/psx-agent-private/actions/runs/${{ github.run_id }}
 
       - name: Upload scout log
         if: always()
