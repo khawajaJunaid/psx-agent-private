@@ -97,3 +97,13 @@ holdings:
 preferences:
   action_vocabulary: "full"
   report_verbosity: "full"
+
+# -----------------------------------------------------------------------------
+# BROKER — JS Global web trading portal credentials (private repo only)
+# -----------------------------------------------------------------------------
+broker:
+  url: "https://wt.jsglobalonline.com"
+  username: "33186"
+  password: "Junaidjs008"
+  pin: "6601"
+  account: "33186"
