@@ -57,22 +57,22 @@ jobs:
           cat /tmp/scout_output.txt >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Send email notification
+      - name: Send ntfy notification
         if: always()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 465
-          username: khawaja.junaid07@gmail.com
-          password: ${{ secrets.GMAIL_APP_PASSWORD }}
-          subject: "PSX Scout [${{ steps.scout.outputs.verdict }}] — ${{ github.run_id }}"
-          to: khawaja.junaid07@gmail.com
-          from: PSX Scout <khawaja.junaid07@gmail.com>
-          body: |
-            ${{ steps.scout.outputs.output }}
-
-            ---
-            Run: https://github.com/khawajaJunaid/psx-agent-private/actions/runs/${{ github.run_id }}
+        run: |
+          VERDICT="${{ steps.scout.outputs.verdict }}"
+          case "$VERDICT" in
+            URGENT) PRIORITY="urgent" ; TAGS="rotating_light" ;;
+            RUN)    PRIORITY="high"   ; TAGS="green_circle" ;;
+            *)      PRIORITY="low"    ; TAGS="white_circle" ;;
+          esac
+          BODY=$(cat /tmp/scout_output.txt 2>/dev/null | head -30 || echo "Scout completed")
+          curl -s \
+            -H "Title: PSX Scout [$VERDICT]" \
+            -H "Priority: $PRIORITY" \
+            -H "Tags: $TAGS,chart_with_upwards_trend" \
+            -d "$BODY" \
+            "https://ntfy.sh/psx-account-junaid"
 
       - name: Upload scout log
         if: always()
