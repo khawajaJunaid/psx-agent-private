@@ -1,7 +1,8 @@
-"""JS Global web trading portal client.
+"""JS Global InvestPro mobile API client.
 
-Handles the randomised digit-password login and order placement.
-Credentials are read from profile.yaml under the `broker` key.
+Uses the vt.jsglobalonline.com/pero/ Java servlet API (reverse-engineered
+from the Android app). Falls back to web portal session cookies if a
+pre-seeded session is provided in profile.yaml.
 
 Usage:
     from tools.broker import JSGlobalClient
@@ -10,12 +11,11 @@ Usage:
     result = client.place_order("BUY", "WTL", shares=100, price=1.29)
 """
 
-import re
+import uuid
 import requests
-from bs4 import BeautifulSoup
 
 
-BASE_URL = "https://wt.jsglobalonline.com"
+MOBILE_BASE = "https://vt.jsglobalonline.com/pero"
 
 
 class BrokerError(Exception):
@@ -29,95 +29,57 @@ class JSGlobalClient:
         self.password = str(cfg.get("password") or "")
         self.pin = str(cfg.get("pin") or "")
         self.account = str(cfg.get("account") or self.username)
-        self._session = requests.Session()
-        self._session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                          "AppleWebKit/537.36 (KHTML, like Gecko) "
-                          "Chrome/148.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-GB,en-US;q=0.9,en;q=0.8",
-            "Accept-Encoding": "gzip, deflate, br",
-            "DNT": "1",
-        })
-        # Seed cookies the server expects from a prior browser visit
-        self._session.cookies.set("customValues", '{"font":"Rubik","fontsize":"14"}',
-                                  domain="wt.jsglobalonline.com")
+        self._session_id = None   # `identifier` from LoginServlet response
         self._logged_in = False
-        # Optional: pre-seeded session cookies (bypasses login when account is locked)
-        self._saved_cookies = (profile.get("broker") or {}).get("session_cookies") or {}
+        self._http = requests.Session()
+        self._http.headers.update({
+            "User-Agent": "Dalvik/2.1.0 (Linux; Android 13; Pixel 6)",
+            "Accept": "application/json",
+            "Accept-Encoding": "gzip",
+        })
+        # Device ID — stable per installation; use account as seed
+        self._device_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, self.username))
 
     # ------------------------------------------------------------------
     # Login
     # ------------------------------------------------------------------
 
-    def _get_enabled_digits(self) -> list[int]:
-        """Fetch login page and return list of enabled Digit positions (1-indexed)."""
-        resp = self._session.get(BASE_URL + "/", timeout=15)
-        resp.raise_for_status()
-        soup = BeautifulSoup(resp.text, "html.parser")
-        enabled = []
-        for inp in soup.find_all("input", id=re.compile(r"^Digit\d+$")):
-            if inp.get("disabled") is None:
-                num = int(re.search(r"\d+", inp["id"]).group())
-                enabled.append(num)
-        if not enabled:
-            raise BrokerError("No Digit fields found on login page — portal may have changed")
-        # Extract CSRF token if present
-        csrf = soup.find("input", {"name": "__RequestVerificationToken"})
-        self._csrf_token = csrf["value"] if csrf else None
-        import sys
-        print(f"[broker] CSRF token found: {self._csrf_token is not None}", file=sys.stderr)
-        return enabled
-
     def login(self) -> None:
-        """Log in to the portal, populating the session cookie."""
-        if self._saved_cookies:
-            for name, value in self._saved_cookies.items():
-                self._session.cookies.set(name, value, domain="wt.jsglobalonline.com")
-            self._logged_in = True
-            return
-        enabled = self._get_enabled_digits()
-        payload = {"UserName": self.username}
-        if self._csrf_token:
-            payload["__RequestVerificationToken"] = self._csrf_token
-        for pos in enabled:
-            if pos <= len(self.password):
-                payload[f"Digit{pos}"] = self.password[pos - 1]
-        import sys
-        print(f"[broker] enabled digits: {enabled}", file=sys.stderr)
-        print(f"[broker] payload (no username): { {k:v for k,v in payload.items() if k != 'UserName'} }", file=sys.stderr)
+        """Authenticate via LoginServlet and store the session identifier."""
+        params = {
+            "userid": self.username,
+            "password": self.password,
+            "deviceID": self._device_id,
+            "isReLogin": "N",
+            "FromActivity": "LoginActivity",
+        }
+        resp = self._http.get(
+            MOBILE_BASE + "/LoginServlet",
+            params=params,
+            timeout=20,
+        )
+        resp.raise_for_status()
+        try:
+            data = resp.json()
+        except Exception:
+            raise BrokerError(f"LoginServlet non-JSON response: {resp.text[:300]}")
 
-        resp = self._session.post(
-            BASE_URL + "/Home/_Login",
-            data=payload,
-            allow_redirects=False,
+        identifier = data.get("identifier")
+        if identifier is None or int(identifier) < 0:
+            msg = data.get("customErrorMessage") or data.get("message") or str(data)
+            raise BrokerError(f"Login failed: {msg}")
+
+        self._session_id = str(identifier)
+        self._logged_in = True
+
+    def relogin(self) -> None:
+        """Refresh the session via ReloginServlet."""
+        resp = self._http.get(
+            MOBILE_BASE + "/ReloginServlet",
+            params={"userid": self.username, "SESSION_ID": self._session_id},
             timeout=15,
-            headers={
-                "Content-Type": "application/x-www-form-urlencoded",
-                "Origin": BASE_URL,
-                "Referer": BASE_URL + "/",
-                "Upgrade-Insecure-Requests": "1",
-                "Sec-Fetch-Site": "same-origin",
-                "Sec-Fetch-Mode": "navigate",
-                "Sec-Fetch-User": "?1",
-                "Sec-Fetch-Dest": "document",
-                "Cache-Control": "max-age=0",
-            },
         )
-        import sys
-        print(f"[broker] login POST status: {resp.status_code}", file=sys.stderr)
-        print(f"[broker] location header: {resp.headers.get('Location','')}", file=sys.stderr)
-        print(f"[broker] response snippet: {resp.text[:500]}", file=sys.stderr)
-        # Successful login returns a 302 redirect to /Home/Index
-        if resp.status_code == 302 and "/Home/Index" in resp.headers.get("Location", ""):
-            self._logged_in = True
-            # Follow the redirect so the session cookies are fully established
-            self._session.get(BASE_URL + "/Home/Index", timeout=15)
-            return
-        raise BrokerError(
-            f"Login failed (HTTP {resp.status_code}). "
-            "Check username/password in profile.yaml."
-        )
+        resp.raise_for_status()
 
     # ------------------------------------------------------------------
     # Orders
@@ -130,10 +92,9 @@ class JSGlobalClient:
         shares: int,
         price: float,
         market: str = "REG",
-        exchange: str = "KSE",
         order_type: str = "Limit",
-    ) -> str:
-        """Place a buy or sell order. Returns the server's confirmation message."""
+    ) -> dict:
+        """Place a buy or sell order. Returns the server's JSON response."""
         if not self._logged_in:
             self.login()
 
@@ -145,32 +106,84 @@ class JSGlobalClient:
         if price <= 0:
             raise BrokerError(f"price must be > 0, got {price}")
 
-        payload = {
-            "Account": self.account,
-            "BuySell": side,
-            "Market": market,
-            "OrderType": order_type,
-            "Volume": str(shares),
-            "Script": ticker,
-            "Exchange": exchange,
-            "Price": f"{price:.2f}",
-            "PIN": self.pin,
-            "LimitPrice": "",
+        params = {
+            "userid": self.username,
+            "SESSION_ID": self._session_id,
+            "acc": self.account,
+            "symbol": ticker,
+            "market": market,
+            "qty": str(shares),
+            "price": f"{price:.2f}",
+            "orderType": order_type,
+            "buySell": side,
+            "pin": self.pin,
         }
 
-        resp = self._session.post(
-            BASE_URL + "/Home/PlaceOrder",
-            data=payload,
-            headers={"X-Requested-With": "XMLHttpRequest"},
+        resp = self._http.get(
+            MOBILE_BASE + "/order",
+            params=params,
+            timeout=20,
+        )
+        resp.raise_for_status()
+        try:
+            return resp.json()
+        except Exception:
+            return {"raw": resp.text.strip()}
+
+    def cancel_order(self, order_id: str) -> dict:
+        """Cancel an open order by order ID."""
+        if not self._logged_in:
+            self.login()
+        resp = self._http.get(
+            MOBILE_BASE + "/cancelOrder",
+            params={
+                "userid": self.username,
+                "SESSION_ID": self._session_id,
+                "acc": self.account,
+                "orderID": order_id,
+            },
             timeout=15,
         )
         resp.raise_for_status()
-        message = resp.text.strip().strip('"')
-        return message
+        try:
+            return resp.json()
+        except Exception:
+            return {"raw": resp.text.strip()}
+
+    def get_logs(self, page: int = 1, page_size: int = 20) -> dict:
+        """Fetch trade log entries."""
+        if not self._logged_in:
+            self.login()
+        resp = self._http.get(
+            MOBILE_BASE + "/LogsServletAndroid",
+            params={
+                "userid": self.username,
+                "SESSION_ID": self._session_id,
+                "acc": self.account,
+                "logname": "OrderLog",
+                "pageNo": str(page),
+                "recordSize": str(page_size),
+            },
+            timeout=15,
+        )
+        resp.raise_for_status()
+        try:
+            return resp.json()
+        except Exception:
+            return {"raw": resp.text.strip()}
+
+    def ping(self) -> bool:
+        """Keepalive ping. Returns True if session is still alive."""
+        try:
+            resp = self._http.get(
+                MOBILE_BASE + "/pingPong",
+                params={"userid": self.username, "SESSION_ID": self._session_id},
+                timeout=10,
+            )
+            return resp.status_code == 200
+        except Exception:
+            return False
 
     def logout(self) -> None:
-        try:
-            self._session.post(BASE_URL + "/Home/Logout", timeout=10)
-        except Exception:
-            pass
         self._logged_in = False
+        self._session_id = None
