@@ -28,7 +28,7 @@ def get_model(provider: str) -> str:
         return custom
     if provider == "openai":
         return "gpt-4o-mini"
-    return "claude-opus-4-8"
+    return "claude-sonnet-4-6"
 
 
 def get_vision_model(provider: str) -> str:
@@ -37,7 +37,7 @@ def get_vision_model(provider: str) -> str:
         return custom
     if provider == "openai":
         return "gpt-4o-mini"
-    return "claude-opus-4-8"
+    return "claude-sonnet-4-6"
 
 
 def _is_rate_limit_error(exc: Exception) -> bool:
