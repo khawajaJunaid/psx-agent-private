@@ -1360,6 +1360,11 @@ def main():
         write_reports(verdict_section=verdict_block)
     except Exception as e:
         print(f"  [!] could not refresh reports/: {e}")
+    try:
+        from tools.whatsapp import build_summary, send_message
+        send_message(build_summary(results, verdict))
+    except Exception as e:
+        print(f"  [!] whatsapp notification failed: {e}")
     print()
 
 
