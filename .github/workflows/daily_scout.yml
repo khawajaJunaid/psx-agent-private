@@ -90,7 +90,7 @@ jobs:
           esac
           SUMMARY=$(grep -E '(🟢|🔴|🟡|⚪)\s+\w+\s+(ENTER|ADD|HOLD|TRIM|EXIT)' /tmp/scout_output.txt 2>/dev/null | sed 's/^ *//')
           if [ -z "$SUMMARY" ]; then
-            SUMMARY=$(grep -E 'Verdict:|KSE100:|Reason' /tmp/scout_output.txt 2>/dev/null | sed 's/^ *//' | head -5 || echo "Scout completed")
+            SUMMARY=$(sed 's/^[[:space:]]*//' /tmp/scout_output.txt 2>/dev/null | grep -v '^$' | grep -v '^===' | tail -20 || echo "Scout completed")
           fi
           RUNINFO="Run: #${{ github.run_number }} | $(date -u '+%Y-%m-%d %H:%M UTC')"
           TEXT=$(printf '%s *PSX Scout [%s]*\n\n%s\n\n_%s_' "$EMOJI" "$VERDICT" "$SUMMARY" "$RUNINFO")
