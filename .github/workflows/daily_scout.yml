@@ -74,6 +74,31 @@ jobs:
             -d "$BODY" \
             "https://ntfy.sh/psx-account-junaid"
 
+      - name: Send WhatsApp notification
+        if: always()
+        env:
+          OPENWA_API_URL: ${{ secrets.OPENWA_API_URL }}
+          OPENWA_API_KEY: ${{ secrets.OPENWA_API_KEY }}
+          OPENWA_SESSION_ID: ${{ secrets.OPENWA_SESSION_ID }}
+          OPENWA_SELF_CHAT_ID: ${{ secrets.OPENWA_SELF_CHAT_ID }}
+        run: |
+          VERDICT="${{ steps.scout.outputs.verdict }}"
+          case "$VERDICT" in
+            URGENT) EMOJI="🚨" ;;
+            RUN)    EMOJI="✅" ;;
+            *)      EMOJI="⚪" ;;
+          esac
+          SUMMARY=$(cat /tmp/scout_output.txt 2>/dev/null | tail -20 || echo "Scout completed")
+          MESSAGE="$EMOJI *PSX Scout [$VERDICT]*
+
+$SUMMARY
+
+_Run: #${{ github.run_number }} | $(date -u '+%Y-%m-%d %H:%M UTC')_"
+          curl -s -X POST "$OPENWA_API_URL/api/sessions/$OPENWA_SESSION_ID/messages/send-text" \
+            -H "Content-Type: application/json" \
+            -H "X-API-Key: $OPENWA_API_KEY" \
+            -d "{\"chatId\": \"$OPENWA_SELF_CHAT_ID\", \"text\": $(echo "$MESSAGE" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')}"
+
       - name: Upload scout log
         if: always()
         uses: actions/upload-artifact@v4
