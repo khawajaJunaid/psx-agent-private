@@ -543,7 +543,7 @@ def _ask_llm(payload):
         f"Decide whether to run the full psx-agent now. Be conservative."
     )
     try:
-        raw = complete(SCOUT_SYSTEM_PROMPT, user_prompt, max_tokens=400)
+        raw = complete(SCOUT_SYSTEM_PROMPT, user_prompt, max_tokens=800)
         return _parse_json_loose(raw)
     except Exception as e:
         return {"_error": str(e)}
