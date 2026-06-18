@@ -1281,18 +1281,27 @@ def main():
             if t and t not in tickers:
                 tickers[t] = t
 
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    def _gather(ticker, company_name):
+        return ticker, gather_ticker_data(ticker, company_name)
+
     ticker_data = {}
-    for ticker, company_name in tickers.items():
-        try:
-            ticker_data[ticker] = gather_ticker_data(ticker, company_name)
-        except Exception as e:
-            print(f"  [!] gather failed on {ticker}: {e}")
-            ticker_data[ticker] = {
-                "company": company_name,
-                "price": {"error": str(e), "ticker": ticker},
-                "news": {"headlines": []},
-                "sentiment": {"sentiment": "neutral", "score": 0},
-            }
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        futures = {ex.submit(_gather, t, c): (t, c) for t, c in tickers.items()}
+        for fut in as_completed(futures):
+            t, c = futures[fut]
+            try:
+                _, data = fut.result()
+                ticker_data[t] = data
+            except Exception as e:
+                print(f"  [!] gather failed on {t}: {e}")
+                ticker_data[t] = {
+                    "company": c,
+                    "price": {"error": str(e), "ticker": t},
+                    "news": {"headlines": []},
+                    "sentiment": {"sentiment": "neutral", "score": 0},
+                }
 
     price_by_ticker = {t: d["price"] for t, d in ticker_data.items()}
     apply_price_overrides(profile, price_by_ticker)
@@ -1306,13 +1315,19 @@ def main():
 
     sector_wts = _sector_weights(portfolio, TICKER_SECTOR)
 
+    def _analyse(ticker, data):
+        return analyse_stock(ticker, data, profile, portfolio, system_prompt, sector_wts=sector_wts)
+
     results = []
-    for ticker, data in ticker_data.items():
-        try:
-            results.append(analyse_stock(ticker, data, profile, portfolio, system_prompt, sector_wts=sector_wts))
-        except Exception as e:
-            print(f"  [!] decision failed on {ticker}: {e}")
-            results.append({"ticker": ticker, "action": "ERROR", "reasoning": str(e)})
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        futures = {ex.submit(_analyse, t, d): t for t, d in ticker_data.items()}
+        for fut in as_completed(futures):
+            t = futures[fut]
+            try:
+                results.append(fut.result())
+            except Exception as e:
+                print(f"  [!] decision failed on {t}: {e}")
+                results.append({"ticker": t, "action": "ERROR", "reasoning": str(e)})
 
     apply_trade_policy(results, ticker_data, portfolio, profile)
     verdict = synthesize_portfolio_verdict(results, portfolio, profile, tickers)
