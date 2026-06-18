@@ -89,15 +89,12 @@ jobs:
             *)      EMOJI="⚪" ;;
           esac
           SUMMARY=$(cat /tmp/scout_output.txt 2>/dev/null | tail -20 || echo "Scout completed")
-          MESSAGE="$EMOJI *PSX Scout [$VERDICT]*
-
-$SUMMARY
-
-_Run: #${{ github.run_number }} | $(date -u '+%Y-%m-%d %H:%M UTC')_"
+          RUNINFO="Run: #${{ github.run_number }} | $(date -u '+%Y-%m-%d %H:%M UTC')"
+          TEXT=$(printf '%s *PSX Scout [%s]*\n\n%s\n\n_%s_' "$EMOJI" "$VERDICT" "$SUMMARY" "$RUNINFO")
           curl -s -X POST "$OPENWA_API_URL/api/sessions/$OPENWA_SESSION_ID/messages/send-text" \
             -H "Content-Type: application/json" \
             -H "X-API-Key: $OPENWA_API_KEY" \
-            -d "{\"chatId\": \"$OPENWA_SELF_CHAT_ID\", \"text\": $(echo "$MESSAGE" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')}"
+            -d "{\"chatId\": \"$OPENWA_SELF_CHAT_ID\", \"text\": $(printf '%s' "$TEXT" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')}"
 
       - name: Upload scout log
         if: always()
