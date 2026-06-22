@@ -88,7 +88,7 @@ jobs:
             RUN)    EMOJI="✅" ;;
             *)      EMOJI="⚪" ;;
           esac
-          SUMMARY=$(grep -E '(🟢|🔴|🟡|⚪)\s+\w+\s+(ENTER|ADD|HOLD|TRIM|EXIT)' /tmp/scout_output.txt 2>/dev/null | sed 's/^ *//')
+          SUMMARY=$(grep -E '\s+(ENTER|ADD|HOLD|TRIM|EXIT)\s+conf' /tmp/scout_output.txt 2>/dev/null | sed 's/^[[:space:]]*//' | head -20)
           if [ -z "$SUMMARY" ]; then
             SUMMARY=$(sed 's/^[[:space:]]*//' /tmp/scout_output.txt 2>/dev/null | grep -v '^$' | grep -v '^===' | tail -20 || echo "Scout completed")
           fi
